@@ -25,6 +25,8 @@ public class AudioDevice : BindableBase, IAudioEndpointVolumeCallback, IAudioDev
     private readonly WeakReference<IAudioDeviceManager> _deviceManager;
     private readonly string _id;
     private readonly AudioDeviceChannelCollection _channels;
+    private readonly float _deviceVolumeMinDb;
+    private readonly float _deviceVolumeMaxDb;
     private IMMDevice _device;
     private string _displayName;
     private string _iconPath;
@@ -51,8 +53,16 @@ public class AudioDevice : BindableBase, IAudioEndpointVolumeCallback, IAudioDev
         {
             _deviceVolume = device.Activate<IAudioEndpointVolume>();
             _deviceVolume.RegisterControlChangeNotify(this);
-            _deviceVolume.GetMasterVolumeLevelScalar(out _volume);
+            if (App.Settings.UseLogarithmicVolume)
+            {
+                _deviceVolume.GetMasterVolumeLevel(out _volume);
+            }
+            else
+            {
+                _deviceVolume.GetMasterVolumeLevelScalar(out _volume);
+            }
             _deviceVolume.GetMute(out var isMuted);
+            _deviceVolume.GetVolumeRange(out _deviceVolumeMinDb, out _deviceVolumeMaxDb, out _);
             _isMuted = isMuted;
             _isRegistered = true;
             _meter = device.Activate<IAudioMeterInformation>();
@@ -67,6 +77,19 @@ public class AudioDevice : BindableBase, IAudioEndpointVolumeCallback, IAudioDev
         }
 
         ReadProperties();
+
+        App.Settings.UseLogarithmicVolumeChanged += (sender, args) =>
+        {
+            if (App.Settings.UseLogarithmicVolume)
+            {
+                _deviceVolume.GetMasterVolumeLevel(out _volume);
+            }
+            else
+            {
+                _deviceVolume.GetMasterVolumeLevelScalar(out _volume);
+            }
+            RaisePropertyChanged(nameof(Volume));
+        };
     }
 
     ~AudioDevice()
@@ -87,6 +110,10 @@ public class AudioDevice : BindableBase, IAudioEndpointVolumeCallback, IAudioDev
     public unsafe void OnNotify(AUDIO_VOLUME_NOTIFICATION_DATA* pNotify)
     {
         _volume = (*pNotify).fMasterVolume;
+        if (App.Settings.UseLogarithmicVolume)
+        {
+            _deviceVolume.GetMasterVolumeLevel(out _volume);
+        }
         _isMuted = (*pNotify).bMuted != 0;
 
         _channels.OnNotify((nint)pNotify, *pNotify);
@@ -98,31 +125,29 @@ public class AudioDevice : BindableBase, IAudioEndpointVolumeCallback, IAudioDev
         }));
     }
 
+    /// <summary>
+    ///     NOTICE: This value can be either scalar or logarithmic based on App.Settings.UseLogarithmicVolume
+    /// </summary>
     public float Volume
     {
-        get => App.Settings.UseLogarithmicVolume ? _volume.ToDisplayVolume() : _volume;
+        get => _volume;
         set
         {
-            value = value.Bound(0, 1f);
-
-            if (App.Settings.UseLogarithmicVolume)
+            try
             {
-                value = value.ToLogVolume();
+                if (App.Settings.UseLogarithmicVolume)
+                {
+                    SetVolumeLogarithmic(value);
+                }
+                else
+                {
+                    SetVolumeScalar(value);
+                }
             }
-
-            if (_volume != value)
+            catch (Exception ex) when (ex.Is(HRESULT.AUDCLNT_E_DEVICE_INVALIDATED))
             {
-                try
-                {
-                    _volume = value;
-                    _deviceVolume.SetMasterVolumeLevelScalar(value, Guid.Empty);
-                }
-                catch (Exception ex) when (ex.Is(HRESULT.AUDCLNT_E_DEVICE_INVALIDATED))
-                {
-                    // Expected in some cases.
-                }
-
-                IsMuted = App.Settings.UseLogarithmicVolume ? _volume <= (1 / 100f).ToLogVolume() : _volume.ToVolumeInt() == 0;
+                // Expected in some cases.
+                // Known: when the master volume in dB is beyond device capabilities
             }
         }
     }
@@ -173,11 +198,48 @@ public class AudioDevice : BindableBase, IAudioEndpointVolumeCallback, IAudioDev
 
     public IEnumerable<IAudioDeviceChannel> Channels => _channels.Channels;
 
+    public float GetVolumeScalar()
+    {
+        _deviceVolume.GetMasterVolumeLevelScalar(out var volume);
+        return volume;
+    }
+
+    public float GetVolumeLogarithmic()
+    {
+        _deviceVolume.GetMasterVolumeLevel(out var volume);
+        return volume;
+    }
+
+    public void SetVolumeScalar(float value)
+    {
+        value = value.Bound(0, 1f);
+        _volume = value;
+        _deviceVolume.SetMasterVolumeLevelScalar(value, Guid.Empty);
+        IsMuted = _volume.ToVolumeInt() == 0;
+    }
+
+    public void SetVolumeLogarithmic(float value)
+    {
+        value = value.Bound(App.Settings.LogarithmicVolumeMinDb, 0);
+        value = value.Bound(_deviceVolumeMinDb, _deviceVolumeMaxDb);
+        _volume = value;
+        _deviceVolume.SetMasterVolumeLevel(value, Guid.Empty);
+        IsMuted = value <= App.Settings.LogarithmicVolumeMinDb;
+    }
+
     public void UpdatePeakValue()
     {
         var newValues = Helpers.ReadPeakValues(_meter);
-        PeakValue1 = newValues[0];
-        PeakValue2 = newValues[1];
+        if (App.Settings.UseLogarithmicVolume)
+        {
+            PeakValue1 = newValues[0].LinearToLogNormalized();
+            PeakValue2 = newValues[1].LinearToLogNormalized();
+        }
+        else
+        {
+            PeakValue1 = newValues[0];
+            PeakValue2 = newValues[1];
+        }
 
         foreach(var session in _sessions.Sessions.ToArray())
         {

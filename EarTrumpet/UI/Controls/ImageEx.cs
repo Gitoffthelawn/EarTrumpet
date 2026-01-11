@@ -82,7 +82,7 @@ public class ImageEx : Image
 
                     if (iconIndex != 0)
                     {
-                        using var icon = IconHelper.LoadIconResource(iconPath.ToString(), Math.Abs(iconIndex), (int)(Width * scale), (int)(Height * scale));
+                        using var icon = IconHelper.LoadIconResource(iconPath.ToString(), Math.Abs(iconIndex), (int)(Width * scale), (int)(Height * scale), false);
                         Trace.WriteLine($"ImageEx LoadImage {icon?.Size.Width}x{icon?.Size.Height} {path}");
                         return Imaging.CreateBitmapSourceFromHIcon(icon.Handle, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
                     }
@@ -157,7 +157,7 @@ public class ImageEx : Image
 
     private static string CanonicalizePath(string path)
     {
-        if (Path.GetDirectoryName(path).StartsWith(_systemPath, StringComparison.InvariantCultureIgnoreCase))
+        if (!Environment.Is64BitProcess && Path.GetDirectoryName(path).StartsWith(_systemPath, StringComparison.InvariantCultureIgnoreCase))
         {
             path = Path.Combine(_windowsPath, "sysnative", path[(_systemPath.Length + 1)..]);
         }

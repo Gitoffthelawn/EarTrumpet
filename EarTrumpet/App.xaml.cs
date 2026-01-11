@@ -118,6 +118,21 @@ public sealed partial class App : IDisposable
         // Initialize the FlyoutWindow last because its Show/Hide cycle will pump messages, causing UI frames
         // to be executed, breaking the assumption that startup is complete.
         FlyoutWindow.Initialize();
+
+        // listen for user session change
+        // When user come back after user switch, do some workaround for issue of losing audio sessions
+        SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
+        Exit += (_, __) => SystemEvents.SessionSwitch -= SystemEvents_SessionSwitch;
+    }
+
+    private void SystemEvents_SessionSwitch(object sender, SessionSwitchEventArgs e)
+    {
+        Trace.WriteLine($"Detected User Session Switch: {e.Reason}");
+        if (e.Reason == SessionSwitchReason.ConsoleConnect)
+        {
+            var devManager = WindowsAudioFactory.Create(AudioDeviceKind.Playback);
+            devManager.RefreshAllDevices();
+        }
     }
 
     private void CompleteStartup()
@@ -136,6 +151,7 @@ public sealed partial class App : IDisposable
         Settings.AbsoluteVolumeUpHotkeyTyped += AbsoluteVolumeIncrement;
         Settings.AbsoluteVolumeDownHotkeyTyped += AbsoluteVolumeDecrement;
         Settings.RegisterHotkeys();
+        Settings.UseLogarithmicVolumeChanged += (_, __) => UpdateTrayTooltip();
 
         _trayIcon.PrimaryInvoke += (_, type) => _flyoutViewModel.OpenFlyout(type);
         _trayIcon.SecondaryInvoke += (_, args) => _trayIcon.ShowContextMenu(GetTrayContextMenuItems(), args.Point);
@@ -172,7 +188,8 @@ public sealed partial class App : IDisposable
     {
         if (Settings.UseScrollWheelInTray && (!Settings.UseGlobalMouseWheelHook || _flyoutViewModel.State == FlyoutViewState.Hidden))
         {
-            CollectionViewModel.Default?.IncrementVolume(Math.Sign(wheelDelta) * 2);
+            CollectionViewModel.Default?.IncrementVolume(
+                Math.Sign(wheelDelta) * (Settings.UseLogarithmicVolume ? 0.2f : 2.0f));
         }
     }
 

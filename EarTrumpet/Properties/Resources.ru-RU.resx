@@ -130,7 +130,7 @@
     <value>Микшер громкости EarTrumpet</value>
   </data>
   <data name="LegacyVolumeMixerText" xml:space="preserve">
-    <value>Старый микшер громкости Windows</value>
+    <value>Микшер громкости(старый)</value>
   </data>
   <data name="NoDevicesPanelContent" xml:space="preserve">
     <value>Не похоже, что у вас есть какое-либо устройство воспроизведения.</value>
@@ -286,6 +286,14 @@
     <value>Невозможно запустить EarTrumpet, так как один из шрифтов используемый этой программой повреждён.
 
 Перейти по ссылке [https://eartrumpet.app/jmp/fixfonts] сейчас?</value>
+  </data>
+  <data name="MissingPoliciesDialogHeaderText" xml:space="preserve">
+    <value>EarTrumpet</value>
+  </data>
+  <data name="MissingPoliciesHelpText" xml:space="preserve">
+    <value>В реестре Windows отсутствуют необходимые записи, что препятствует автоматическому запуску EarTrumpet.
+
+Открыть [https://eartrumpet.app/jmp/fixstartup] чтобы решить эту проблему?</value>
   </data>
   <data name="ToggleMuteToolTip" xml:space="preserve">
     <value>Без звука</value>
@@ -516,10 +524,10 @@
     <value>Установить громкость программы</value>
   </data>
   <data name="SetAppVolumeAction_LinkText" xml:space="preserve">
-    <value>{Option} громкость {App} на {Volume} на {Device}</value>
+    <value>{Option} громкость {App} на {Volume}&#x200B;{Unit} на {Device}</value>
   </data>
   <data name="SetAppVolumeAction_LinkTextIncrement" xml:space="preserve">
-    <value>{Option} громкость {App} на {Volume} на {Device}</value>
+    <value>{Option} громкость {App} на {Volume}&#x200B;{Unit} на {Device}</value>
   </data>
   <data name="SetDefaultDeviceAction_AddText" xml:space="preserve">
     <value>Установить устройство воспроизведения по умолчанию</value>
@@ -540,10 +548,10 @@
     <value>Установить громкость устройства</value>
   </data>
   <data name="SetDeviceVolumeAction_LinkText" xml:space="preserve">
-    <value>{Option} громкость на {Volume} на {Device}</value>
+    <value>{Option} громкость на {Volume}&#x200B;{Unit} на {Device}</value>
   </data>
   <data name="SetDeviceVolumeAction_LinkTextIncrement" xml:space="preserve">
-    <value>{Option} громкость на {Volume} на {Device}</value>
+    <value>{Option} громкость на {Volume}&#x200B;{Unit} на {Device}</value>
   </data>
   <data name="SetVariableAction_AddText" xml:space="preserve">
     <value>Установить локальную переменную</value>
@@ -648,7 +656,7 @@
     <value>Параметры устройств и громкости приложений</value>
   </data>
   <data name="OpenAppsVolume_Windows11_Text" xml:space="preserve">
-    <value>Микшер громкости</value>
+    <value>Микшер громкости (системный)</value>
   </data>
   <data name="MouseSettingsPageText" xml:space="preserve">
     <value>Параметры мыши</value>

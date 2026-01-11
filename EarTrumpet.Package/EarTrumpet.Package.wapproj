@@ -36,7 +36,7 @@
   <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.props" />
   <PropertyGroup>
     <ProjectGuid>ea5510ed-f014-4587-a505-64c59d5b2627</ProjectGuid>
-    <TargetPlatformVersion>10.0.22000.0</TargetPlatformVersion>
+    <TargetPlatformVersion>10.0.26100.0</TargetPlatformVersion>
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <DefaultLanguage>en-US</DefaultLanguage>
     <PackageCertificateKeyFile>EarTrumpet.Package_StoreKey.pfx</PackageCertificateKeyFile>
@@ -170,11 +170,9 @@
         <LanguageTag>$([System.Text.RegularExpressions.Regex]::Match('%(Filename)', 'Resources\.(.+)').Groups[1].Value)</LanguageTag>
       </EarTrumpetReferencedResxFiles>
     </ItemGroup>
-    <Message Importance="high" Text="AppxDefaultResourceQualifiers = $(AppxDefaultResourceQualifiers)" />
     <PropertyGroup>
       <AppxDefaultResourceQualifiers>Language=en-us;@(EarTrumpetReferencedResxFiles->'%(LanguageTag)', ';')|DXFeatureLevel=DX9|Scale=100|Scale=125|Scale=150|Scale=200|Scale=400|TargetSize=16|TargetSize=24|TargetSize=32|TargetSize=48|TargetSize=256|AlternateForm=UNPLATED|Contrast=standard|HomeRegion=001|LayoutDirection=LTR|Configuration=|Platform=UAP</AppxDefaultResourceQualifiers>
     </PropertyGroup>
-    <Message Importance="high" Text="AppxDefaultResourceQualifiers = $(AppxDefaultResourceQualifiers)" />
   </Target>
   <Target Name="EarTrumpet_GenerateDesktopBridgeAppxManifest" AfterTargets="_GenerateDesktopBridgeAppxManifest" DependsOnTargets="EarTrumpet_SetAppxDefaultResourceQualifiers">
     <PropertyGroup>

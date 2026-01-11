@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Threading;
 using Windows.Win32;
 using Windows.Win32.Media.Audio;
@@ -31,31 +32,30 @@ internal class AudioDeviceSession : BindableBase, IAudioSessionEvents, IAudioDev
         }
     }
 
+    /// <summary>
+    ///     NOTICE: This value can be either scalar or logarithmic based on App.Settings.UseLogarithmicVolume
+    /// </summary>
     public float Volume
     {
-        get => App.Settings.UseLogarithmicVolume ? _volume.ToDisplayVolume() : _volume;
+        get => App.Settings.UseLogarithmicVolume
+            ? GetVolumeLogarithmic()
+            : GetVolumeScalar();
         set
         {
-            value = value.Bound(0, 1f);
-
-            if (App.Settings.UseLogarithmicVolume)
+            try
             {
-                value = value.ToLogVolume();
+                if (App.Settings.UseLogarithmicVolume)
+                {
+                    SetVolumeLogarithmic(value);
+                }
+                else
+                {
+                    SetVolumeScalar(value);
+                }
             }
-
-            if (_volume != value)
+            catch (Exception ex) when (ex.Is(HRESULT.AUDCLNT_E_DEVICE_INVALIDATED))
             {
-                try
-                {
-                    _volume = value;
-                    _simpleVolume.SetMasterVolume(value, Guid.Empty);
-                }
-                catch (Exception ex) when (ex.Is(HRESULT.AUDCLNT_E_DEVICE_INVALIDATED))
-                {
-                    // Expected in some cases.
-                }
-
-                IsMuted = App.Settings.UseLogarithmicVolume ? _volume <= (1 / 100f).ToLogVolume() : _volume.ToVolumeInt() == 0;
+                // Expected in some cases.
             }
         }
     }
@@ -189,6 +189,16 @@ internal class AudioDeviceSession : BindableBase, IAudioSessionEvents, IAudioDev
                 SyncPersistedEndpoint(parent);
             }
         }
+
+        WeakEventManager<AppSettings, EventArgs>.AddHandler(
+            App.Settings,
+            nameof(AppSettings.UseLogarithmicVolumeChanged),
+            UseLogarithmicVolumeChangedHandler);
+    }
+
+    private void UseLogarithmicVolumeChangedHandler(object sender, EventArgs e)
+    {
+        RaisePropertyChanged(nameof(Volume));
     }
 
     ~AudioDeviceSession()
@@ -204,6 +214,26 @@ internal class AudioDeviceSession : BindableBase, IAudioSessionEvents, IAudioDev
         {
             Trace.WriteLine($"AudioDeviceSession dtor Failed: {ex}");
         }
+    }
+
+    public float GetVolumeScalar() => _volume;
+    public float GetVolumeLogarithmic() => _volume.LinearToLog();
+
+    public void SetVolumeScalar(float value)
+    {
+        value = value.Bound(0, 1f);
+        _simpleVolume.SetMasterVolume(value, Guid.Empty);
+        _volume = value;
+        IsMuted = _volume.ToVolumeInt() == 0;
+    }
+
+    public void SetVolumeLogarithmic(float value)
+    {
+        value = value.Bound(App.Settings.LogarithmicVolumeMinDb, 0);
+        // We must convert manually here because sessions use linear volume.
+        _simpleVolume.SetMasterVolume(value.LogToLinear(), Guid.Empty);
+        _volume = value;
+        IsMuted = value <= App.Settings.LogarithmicVolumeMinDb;
     }
 
     public void Hide()
@@ -242,8 +272,16 @@ internal class AudioDeviceSession : BindableBase, IAudioSessionEvents, IAudioDev
     public void UpdatePeakValueBackground()
     {
         var newValues = Helpers.ReadPeakValues(_meter);
-        PeakValue1 = newValues[0];
-        PeakValue2 = newValues[1];
+        if (App.Settings.UseLogarithmicVolume)
+        {
+            PeakValue1 = newValues[0].LinearToLogNormalized();
+            PeakValue2 = newValues[1].LinearToLogNormalized();
+        }
+        else
+        {
+            PeakValue1 = newValues[0];
+            PeakValue2 = newValues[1];
+        }
     }
 
     private void ChooseDisplayName(string displayNameFromSession)
